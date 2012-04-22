@@ -22,6 +22,9 @@ Sample usage:
 
 For definitions of the different versions of RSS, see:
 http://diveintomark.org/archives/2004/02/04/incompatible-rss
+
+CHANGES:
+   - from webhelpers: add published property for items to atom feed
 """
 
 import datetime
@@ -339,6 +342,7 @@ class Atom1Feed(SyndicationFeed):
         handler.addQuickElement(u"link", u"", {u"href": item['link'], u"rel": u"alternate"})
         if item['pubdate'] is not None:
             handler.addQuickElement(u"updated", rfc3339_date(item['pubdate']).decode('utf-8'))
+            handler.addQuickElement(u"published", rfc3339_date(item['pubdate']).decode('utf-8'))
 
         # Author information.
         if item['author_name'] is not None:
