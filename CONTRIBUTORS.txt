@@ -1,0 +1,6 @@
+Contributors
+------------
+
+- Alexis Metaireau, 2012/03
+
+- Ian Wilson, 2012/04

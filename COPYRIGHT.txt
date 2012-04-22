@@ -1,0 +1,5 @@
+Portions (c) Django.
+
+Portions (c) Web Helpers and contributors.
+
+Portions (c) FeedGenerator and contributors.
