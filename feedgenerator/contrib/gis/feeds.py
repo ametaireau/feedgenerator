@@ -3,6 +3,7 @@ Ported from django.contrib.gis.feeds.
 
 Modifications/Fixes from WebHelpers
     - if not geom is None ==> if geom is not None
+    - added flag to GeoFeedMixin to toggle the order of latitude/longitude.
 """
 from feedgenerator.generator import Atom1Feed, Rss201rev2Feed
 
@@ -12,12 +13,17 @@ class GeoFeedMixin(object):
     to produce simple GeoRSS or W3C Geo elements.
     """
 
+    is_input_latitude_first = False
+    " If latitude is the first entry in coords, otherwise longitude is. "
+
     def georss_coords(self, coords):
         """
         In GeoRSS coordinate pairs are ordered by lat/lon and separated by
         a single white space.  Given a tuple of coordinates, this will return
         a unicode GeoRSS representation.
         """
+        if self.is_input_latitude_first:
+            coords = [(coord[1], coord[0]) for coord in coords]
         return u' '.join([u'%f %f' % (coord[1], coord[0]) for coord in coords])
 
     def add_georss_point(self, handler, coords, w3c_geo=False):
@@ -26,6 +32,8 @@ class GeoFeedMixin(object):
         Handles the differences between simple GeoRSS and the more pouplar
         W3C Geo specification.
         """
+        if self.is_input_latitude_first:
+            coords = (coords[1], coords[0])
         if w3c_geo:
             lon, lat = coords[:2]
             handler.addQuickElement(u'geo:lat', u'%f' % lat)
