@@ -1,5 +1,8 @@
 """
 Ported from django.contrib.gis.feeds.
+
+Modifications/Fixes from WebHelpers
+    - if not geom is None ==> if geom is not None
 """
 from feedgenerator.generator import Atom1Feed, Rss201rev2Feed
 
@@ -36,7 +39,7 @@ class GeoFeedMixin(object):
         """
         # Getting the Geometry object.
         geom = item.get('geometry', None)
-        if not geom is None:
+        if geom is not None:
             if isinstance(geom, (list, tuple)):
                 # Special case if a tuple/list was passed in.  The tuple may be
                 # a point or a box
