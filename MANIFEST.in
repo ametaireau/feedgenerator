@@ -1,0 +1,2 @@
+recursive-include tests *.py
+include CHANGELOG LICENSE.txt COPYRIGHT.txt CONTRIBUTORS.txt

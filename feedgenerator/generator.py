@@ -22,133 +22,44 @@ Sample usage:
 
 For definitions of the different versions of RSS, see:
 http://diveintomark.org/archives/2004/02/04/incompatible-rss
+
+CHANGES:
+   - from webhelpers: add published property for items to atom feed
 """
 
 import datetime
 import urlparse
-import urllib
-import types
-from decimal import Decimal
-from xml.sax.saxutils import XMLGenerator
-
-# -- Imported from others modules ----------------------------------
-
-class SimplerXMLGenerator(XMLGenerator):
-    def addQuickElement(self, name, contents=None, attrs=None):
-        "Convenience method for adding an element with no children"
-        if attrs is None: attrs = {}
-        self.startElement(name, attrs)
-        if contents is not None:
-            self.characters(contents)
-        self.endElement(name)
-
-def smart_str(s, encoding='utf-8', strings_only=False, errors='strict'):
-    """
-    Returns a bytestring version of 's', encoded as specified in 'encoding'.
-
-    If strings_only is True, don't convert (some) non-string-like objects.
-    """
-    if strings_only and isinstance(s, (types.NoneType, int)):
-        return s
-    elif not isinstance(s, basestring):
-        try:
-            return str(s)
-        except UnicodeEncodeError:
-            if isinstance(s, Exception):
-                # An Exception subclass containing non-ASCII data that doesn't
-                # know how to print itself properly. We shouldn't raise a
-                # further exception.
-                return ' '.join([smart_str(arg, encoding, strings_only,
-                        errors) for arg in s])
-            return unicode(s).encode(encoding, errors)
-    elif isinstance(s, unicode):
-        return s.encode(encoding, errors)
-    elif s and encoding != 'utf-8':
-        return s.decode('utf-8', errors).encode(encoding, errors)
-    else:
-        return s
-
-def  iri_to_uri(iri):                                                           
-    if iri is None:                                                            
-        return iri                                                             
-    return urllib.quote(smart_str(iri), safe="/#%[]=:;$&()+,!?*@'~")   
-
-def is_protected_type(obj):
-    """Determine if the object instance is of a protected type.
-
-    Objects of protected types are preserved as-is when passed to
-    force_unicode(strings_only=True).
-    """
-    return isinstance(obj, (
-        types.NoneType,
-        int, long,
-        datetime.datetime, datetime.date, datetime.time,
-        float, Decimal)
-    )
-
-def force_unicode(s, encoding='utf-8', strings_only=False, errors='strict'):
-    """
-    Similar to smart_unicode, except that lazy instances are resolved to
-    strings, rather than kept as lazy objects.
-
-    If strings_only is True, don't convert (some) non-string-like objects.
-    """
-    if strings_only and is_protected_type(s):
-        return s
-    try:
-        if not isinstance(s, basestring,):
-            if hasattr(s, '__unicode__'):
-                s = unicode(s)
-            else:
-                try:
-                    s = unicode(str(s), encoding, errors)
-                except UnicodeEncodeError:
-                    if not isinstance(s, Exception):
-                        raise
-                    # If we get to here, the caller has passed in an Exception
-                    # subclass populated with non-ASCII data without special
-                    # handling to display as a string. We need to handle this
-                    # without raising a further exception. We do an
-                    # approximation to what the Exception's standard str()
-                    # output should be.
-                    s = ' '.join([force_unicode(arg, encoding, strings_only,
-                            errors) for arg in s])
-        elif not isinstance(s, unicode):
-            # Note: We use .decode() here, instead of unicode(s, encoding,
-            # errors), so that if s is a SafeString, it ends up being a
-            # SafeUnicode at the end.
-            s = s.decode(encoding, errors)
-    except UnicodeDecodeError, e:
-        if not isinstance(s, Exception):
-            raise UnicodeDecodeError(s, *e.args)
-        else:
-            # If we get to here, the caller has passed in an Exception
-            # subclass populated with non-ASCII bytestring data without a
-            # working unicode method. Try to handle this without raising a
-            # further exception by individually forcing the exception args
-            # to unicode.
-            s = ' '.join([force_unicode(arg, encoding, strings_only,
-                    errors) for arg in s])
-    return s
-
-# -- Start of the feedgenerator module --------------------------------------
+from feedgenerator.utils.xmlutils import SimplerXMLGenerator
+from feedgenerator.utils.encoding import force_unicode, iri_to_uri
+from feedgenerator.utils import datetime_safe
+from feedgenerator.utils.timezone import is_aware
 
 def rfc2822_date(date):
+    # We can't use strftime() because it produces locale-dependant results, so
+    # we have to map english month and day names manually
+    months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',)
+    days = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
+    # Support datetime objects older than 1900
+    date = datetime_safe.new_datetime(date)
     # We do this ourselves to be timezone aware, email.Utils is not tz aware.
-    if date.tzinfo:
-        time_str = date.strftime('%a, %d %b %Y %H:%M:%S ')
+    dow = days[date.weekday()]
+    month = months[date.month - 1]
+    time_str = date.strftime('%s, %%d %s %%Y %%H:%%M:%%S ' % (dow, month))
+    if is_aware(date):
         offset = date.tzinfo.utcoffset(date)
-        timezone = (offset.days * 24 * 60) + (offset.seconds / 60)
+        timezone = (offset.days * 24 * 60) + (offset.seconds // 60)
         hour, minute = divmod(timezone, 60)
         return time_str + "%+03d%02d" % (hour, minute)
     else:
-        return date.strftime('%a, %d %b %Y %H:%M:%S -0000')
+        return time_str + '-0000'
 
 def rfc3339_date(date):
-    if date.tzinfo:
+    # Support datetime objects older than 1900
+    date = datetime_safe.new_datetime(date)
+    if is_aware(date):
         time_str = date.strftime('%Y-%m-%dT%H:%M:%S')
         offset = date.tzinfo.utcoffset(date)
-        timezone = (offset.days * 24 * 60) + (offset.seconds / 60)
+        timezone = (offset.days * 24 * 60) + (offset.seconds // 60)
         hour, minute = divmod(timezone, 60)
         return time_str + "%+03d:%02d" % (hour, minute)
     else:
@@ -160,17 +71,11 @@ def get_tag_uri(url, date):
 
     See http://diveintomark.org/archives/2004/05/28/howto-atom-id
     """
-    url_split = urlparse.urlparse(url)
-
-    # Python 2.4 didn't have named attributes on split results or the hostname.
-    hostname = getattr(url_split, 'hostname', url_split[1].split(':')[0])
-    path = url_split[2]
-    fragment = url_split[5]
-
+    bits = urlparse.urlparse(url)
     d = ''
     if date is not None:
-        d = ',%s' % date.strftime('%Y-%m-%d')
-    return u'tag:%s%s:%s/%s' % (hostname, d, path, fragment)
+        d = ',%s' % datetime_safe.new_datetime(date).strftime('%Y-%m-%d')
+    return u'tag:%s%s:%s/%s' % (bits.hostname, d, bits.path, bits.fragment)
 
 class SyndicationFeed(object):
     "Base class for all syndication feeds. Subclasses should provide write()"
@@ -299,7 +204,7 @@ class Enclosure(object):
         self.url = iri_to_uri(url)
 
 class RssFeed(SyndicationFeed):
-    mime_type = 'application/rss+xml'
+    mime_type = 'application/rss+xml; charset=utf-8'
     def write(self, outfile, encoding):
         handler = SimplerXMLGenerator(outfile, encoding)
         handler.startDocument()
@@ -324,7 +229,9 @@ class RssFeed(SyndicationFeed):
         handler.addQuickElement(u"title", self.feed['title'])
         handler.addQuickElement(u"link", self.feed['link'])
         handler.addQuickElement(u"description", self.feed['description'])
-        handler.addQuickElement(u"atom:link", None, {u"rel": u"self", u"href": self.feed['feed_url']})
+        if self.feed['feed_url'] is not None:
+            handler.addQuickElement(u"atom:link", None,
+                    {u"rel": u"self", u"href": self.feed['feed_url']})
         if self.feed['language'] is not None:
             handler.addQuickElement(u"language", self.feed['language'])
         for cat in self.feed['categories']:
@@ -385,7 +292,7 @@ class Rss201rev2Feed(RssFeed):
 
 class Atom1Feed(SyndicationFeed):
     # Spec: http://atompub.org/2005/07/11/draft-ietf-atompub-format-10.html
-    mime_type = 'application/atom+xml'
+    mime_type = 'application/atom+xml; charset=utf-8'
     ns = u"http://www.w3.org/2005/Atom"
 
     def write(self, outfile, encoding):
@@ -435,6 +342,7 @@ class Atom1Feed(SyndicationFeed):
         handler.addQuickElement(u"link", u"", {u"href": item['link'], u"rel": u"alternate"})
         if item['pubdate'] is not None:
             handler.addQuickElement(u"updated", rfc3339_date(item['pubdate']).decode('utf-8'))
+            handler.addQuickElement(u"published", rfc3339_date(item['pubdate']).decode('utf-8'))
 
         # Author information.
         if item['author_name'] is not None:
