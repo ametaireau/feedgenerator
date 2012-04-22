@@ -3,7 +3,8 @@ from distutils.core import setup
 
 
 NAME = 'feedgenerator'
-MODULES = ['feedgenerator']
+PACKAGES = ['feedgenerator', 'feedgenerator.utils', 'feedgenerator.contrib',
+        'feedgenerator.contrib.gis']
 DESCRIPTION = 'Standalone version of django.utils.feedgenerator'
 
 URL = "http://hg.lolnet.org/feedgenerator/"
@@ -29,7 +30,7 @@ VERSION = '1.2.1'
 setup(
     name=NAME,
     version=VERSION,
-    py_modules=MODULES,
+    packages=PACKAGES,
     
     # metadata for upload to PyPI
     author=AUTHOR,
