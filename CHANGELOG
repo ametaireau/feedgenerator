@@ -1,0 +1,11 @@
+Changes
+=======
+
+  - Added simple tests.
+  - Ported geometry class from webhelpers.
+  - Applied webhelpers fixes and extensions.
+  - Ported GeoFeedMixin
+  - Updated to django: 45b80c420d6655ec5b86bea3b3c17b4adaa61291
+  - Factored out utilities.
+  - Coerced into package.
+  - Initial import
