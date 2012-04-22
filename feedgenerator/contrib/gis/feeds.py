@@ -1,8 +1,11 @@
 """
 Ported from django.contrib.gis.feeds.
 
-Modifications/Fixes from WebHelpers
-    - if not geom is None ==> if geom is not None
+Fixes From WebHelpers:
+     - if not geom is None ==> if geom is not None
+Other Fixes:
+    - ducktype the polygon object so we can create a generalized version
+Modifications:
     - added flag to GeoFeedMixin to toggle the order of latitude/longitude.
 """
 from feedgenerator.generator import Atom1Feed, Rss201rev2Feed
@@ -84,7 +87,10 @@ class GeoFeedMixin(object):
                         handler.addQuickElement(u'georss:line', self.georss_coords(geom.coords))
                     elif gtype in ('polygon',):
                         # Only support the exterior ring.
-                        handler.addQuickElement(u'georss:polygon', self.georss_coords(geom[0].coords))
+                        if hasattr(geom, '__getitem__'):
+                            handler.addQuickElement(u'georss:polygon', self.georss_coords(geom[0].coords))
+                        else:
+                            handler.addQuickElement(u'georss:polygon', self.georss_coords(geom.coords[0]))
                     else:
                         raise ValueError('Geometry type "%s" not supported.' % geom.geom_type)
 
